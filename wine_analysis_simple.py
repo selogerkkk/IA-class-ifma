@@ -6,202 +6,217 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, r2_score, accuracy_score, confusion_matrix
 
-# Carregar dados
+print("=== CARREGANDO DADOS DO VINHO ===")
 df = pd.read_csv("dataset/winequality-red.csv", sep=";")
 
-# 1. PRÉ-PROCESSAMENTO
-print("=== ANÁLISE EXPLORATÓRIA ===")
+print("Primeiras 5 linhas do dataset:")
 print(df.head())
-print("\n", df.describe())
-print("\n", df.info())
+print(f"\nTamanho do dataset: {df.shape[0]} vinhos com {df.shape[1]} características")
 
-print(f"\nValores únicos por coluna:")
-for col in df.columns:
-    print(f"{col}: {df[col].nunique()} valores únicos")
+print("\nEstatísticas descritivas:")
+print(df.describe())
 
-# Verificar valores ausentes
-print(f"\nValores ausentes:\n{df.isnull().sum()}")
+print(f"\nValores únicos na coluna 'quality' (nossa variável alvo):")
+print(f"Qualidades possíveis: {sorted(df['quality'].unique())}")
+print(f"Distribuição das qualidades:\n{df['quality'].value_counts().sort_index()}")
 
-# Boxplot para outliers
-plt.figure(figsize=(12, 6))
+print(f"\nVerificação de dados faltantes:")
+missing_data = df.isnull().sum()
+if missing_data.sum() == 0:
+    print("✓ Não há dados faltantes no dataset!")
+else:
+    print(missing_data[missing_data > 0])
+
+print("\n=== ANÁLISE VISUAL DOS DADOS ===")
+
+plt.figure(figsize=(16, 12))
+
+plt.subplot(2, 3, 1)
 sns.boxplot(data=df)
 plt.xticks(rotation=45)
 plt.title('Detecção de Outliers')
 plt.tight_layout()
-plt.savefig('results_analysis.png', dpi=300, bbox_inches='tight')
-plt.show()
 
-# Normalizar dados (exceto target)
-scaler = StandardScaler()
-features = df.drop('quality', axis=1)
-df_scaled = scaler.fit_transform(features)
-df_scaled = pd.DataFrame(df_scaled, columns=features.columns)
-df_scaled['quality'] = df['quality'].values
-
-print(f"\nDados normalizados!")
-
-# 2. REGRESSÃO LINEAR
-print("\n=== REGRESSÃO LINEAR ===")
-
-# Dividir dados
-X = df_scaled.drop("quality", axis=1).values
-y = df_scaled["quality"].values
-
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-
-def mean_squared_error(y_true, y_pred):
-    return np.mean((y_true - y_pred) ** 2)
-
-def gradient_descent(X, y, lr=0.01, epochs=1000):
-    m, n = X.shape
-    X_b = np.c_[np.ones((m, 1)), X]  # adiciona bias
-    theta = np.random.randn(n + 1)  # inicializa pesos
-    
-    for epoch in range(epochs):
-        y_pred = X_b.dot(theta)
-        error = y_pred - y
-        gradients = (2/m) * X_b.T.dot(error)
-        theta -= lr * gradients
-        
-        if epoch % 200 == 0:
-            loss = mean_squared_error(y, y_pred)
-            print(f"Epoch {epoch}, MSE: {loss:.4f}")
-    
-    return theta
-
-# Treinar modelo
-print("Treinando regressão linear...")
-theta = gradient_descent(X_train, y_train)
-
-# Predições
-X_test_b = np.c_[np.ones((X_test.shape[0], 1)), X_test]
-y_pred = X_test_b.dot(theta)
-
-# Métricas regressão
-mse = mean_squared_error(y_test, y_pred)
-rmse = np.sqrt(mse)
-mae = mean_absolute_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
-
-print(f"\n=== RESULTADOS REGRESSÃO LINEAR ===")
-print(f"MSE: {mse:.4f}")
-print(f"RMSE: {rmse:.4f}")
-print(f"MAE: {mae:.4f}")
-print(f"R²: {r2:.4f}")
-
-# 3. REGRESSÃO LOGÍSTICA
-print("\n=== REGRESSÃO LOGÍSTICA ===")
-
-# Criar problema binário (qualidade >= 6 = boa)
-y_binary = (df['quality'] >= 6).astype(int)
-X_train_log, X_test_log, y_train_log, y_test_log = train_test_split(X, y_binary, test_size=0.3, random_state=42)
-
-def sigmoid(z):
-    z = np.clip(z, -250, 250)  # evitar overflow
-    return 1 / (1 + np.exp(-z))
-
-def logistic_gradient_descent(X, y, lr=0.1, epochs=1000):
-    m, n = X.shape
-    X_b = np.c_[np.ones((m, 1)), X]
-    theta = np.random.randn(n + 1)
-    
-    for epoch in range(epochs):
-        z = X_b.dot(theta)
-        y_pred = sigmoid(z)
-        error = y_pred - y
-        gradients = (1/m) * X_b.T.dot(error)
-        theta -= lr * gradients
-        
-        if epoch % 200 == 0:
-            cost = -np.mean(y * np.log(y_pred + 1e-15) + (1 - y) * np.log(1 - y_pred + 1e-15))
-            print(f"Epoch {epoch}, Cost: {cost:.4f}")
-    
-    return theta
-
-# Treinar modelo logístico
-print("Treinando regressão logística...")
-theta_log = logistic_gradient_descent(X_train_log, y_train_log)
-
-# Predições logísticas
-X_test_log_b = np.c_[np.ones((X_test_log.shape[0], 1)), X_test_log]
-y_pred_proba = sigmoid(X_test_log_b.dot(theta_log))
-y_pred_log = (y_pred_proba >= 0.5).astype(int)
-
-# Métricas classificação
-accuracy = accuracy_score(y_test_log, y_pred_log)
-cm = confusion_matrix(y_test_log, y_pred_log)
-
-print(f"\n=== RESULTADOS REGRESSÃO LOGÍSTICA ===")
-print(f"Acurácia: {accuracy:.4f}")
-print(f"Matriz de Confusão:\n{cm}")
-
-# Calcular precision, recall, f1
-tn, fp, fn, tp = cm.ravel()
-precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-
-print(f"Precisão: {precision:.4f}")
-print(f"Recall: {recall:.4f}")
-print(f"F1-Score: {f1:.4f}")
-
-# 4. VISUALIZAÇÕES
-plt.figure(figsize=(18, 12))
-
-# Predições vs Real (Regressão)
-plt.subplot(2, 3, 1)
-plt.scatter(y_test, y_pred, alpha=0.6)
-plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2)
-plt.xlabel('Valores Reais')
-plt.ylabel('Predições')
-plt.title('Regressão Linear: Predições vs Real')
-
-# Resíduos
 plt.subplot(2, 3, 2)
-residuals = y_test - y_pred
-plt.scatter(y_pred, residuals, alpha=0.6)
-plt.axhline(y=0, color='r', linestyle='--')
-plt.xlabel('Predições')
-plt.ylabel('Resíduos')
-plt.title('Análise de Resíduos')
-
-# Distribuição da qualidade
-plt.subplot(2, 3, 3)
-plt.hist(df['quality'], bins=10, edgecolor='black', alpha=0.7)
-plt.xlabel('Qualidade')
-plt.ylabel('Frequência')
+plt.hist(df['quality'], bins=10, edgecolor='black', alpha=0.7, color='skyblue')
+plt.xlabel('Qualidade do Vinho')
+plt.ylabel('Número de Vinhos')
 plt.title('Distribuição da Qualidade')
 
-# Matriz de correlação
-plt.subplot(2, 3, 4)
+plt.subplot(2, 3, 3)
 corr = df.corr()
-# Aumentar o tamanho da fonte e melhorar a visualização
 sns.heatmap(corr, annot=True, cmap='coolwarm', center=0, fmt='.2f', 
             annot_kws={'size': 8}, square=True, linewidths=0.5)
 plt.title('Matriz de Correlação', fontsize=12)
 plt.xticks(rotation=45, ha='right', fontsize=9)
 plt.yticks(rotation=0, fontsize=9)
 
-# Matriz de confusão
-plt.subplot(2, 3, 5)
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
-plt.xlabel('Predito')
-plt.ylabel('Real')
-plt.title('Matriz de Confusão')
+plt.subplot(2, 3, 4)
+plt.scatter(df['alcohol'], df['quality'], alpha=0.6, color='red')
+plt.xlabel('Teor Alcoólico')
+plt.ylabel('Qualidade')
+plt.title('Álcool vs Qualidade')
 
-# Distribuição de probabilidades
-plt.subplot(2, 3, 6)
-plt.hist(y_pred_proba[y_test_log == 0], alpha=0.7, label='Qualidade Baixa', bins=20)
-plt.hist(y_pred_proba[y_test_log == 1], alpha=0.7, label='Qualidade Alta', bins=20)
-plt.xlabel('Probabilidade')
+plt.subplot(2, 3, 5)
+plt.scatter(df['volatile acidity'], df['quality'], alpha=0.6, color='purple')
+plt.xlabel('Acidez Volátil')
+plt.ylabel('Qualidade')
+plt.title('Acidez Volátil vs Qualidade')
+
+plt.tight_layout()
+plt.savefig('analise_exploratoria.png', dpi=300, bbox_inches='tight')
+plt.show()
+
+print("\n=== PRÉ-PROCESSAMENTO DOS DADOS ===")
+
+print("Normalizando os dados...")
+
+features = df.drop('quality', axis=1)
+target = df['quality']
+
+print(f"Características (X): {features.shape[1]} variáveis")
+print(f"Variável alvo (y): qualidade do vinho")
+
+scaler = StandardScaler()
+X_normalized = scaler.fit_transform(features)
+
+print("✓ Dados normalizados!")
+
+print("\n=== DIVISÃO DOS DADOS ===")
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X_normalized, target, test_size=0.3, random_state=42
+)
+
+print(f"Dados de treino: {X_train.shape[0]} vinhos")
+print(f"Dados de teste: {X_test.shape[0]} vinhos")
+
+print("\n=== REGRESSÃO LINEAR ===")
+
+def mean_squared_error(y_true, y_pred):
+    return np.mean((y_true - y_pred) ** 2)
+
+def gradient_descent(X, y, learning_rate=0.01, epochs=1000):
+    m, n = X.shape
+    X_b = np.c_[np.ones((m, 1)), X]
+    theta = np.random.randn(n + 1)
+    
+    print("Iniciando treinamento...")
+    
+    for epoch in range(epochs):
+        y_pred = X_b.dot(theta)
+        error = y_pred - y
+        gradients = (2/m) * X_b.T.dot(error)
+        theta -= learning_rate * gradients
+        
+        if epoch % 200 == 0:
+            loss = mean_squared_error(y, y_pred)
+            print(f"Época {epoch:4d}: MSE = {loss:.4f}")
+    
+    return theta
+
+print("\nTreinando o modelo de regressão linear...")
+theta_final = gradient_descent(X_train, y_train, learning_rate=0.01, epochs=1000)
+
+print(f"\n✓ Treinamento concluído!")
+
+print("\n=== FAZENDO PREDIÇÕES ===")
+
+X_test_b = np.c_[np.ones((X_test.shape[0], 1)), X_test]
+y_pred = X_test_b.dot(theta_final)
+
+print(f"Predições feitas para {len(y_test)} vinhos de teste.")
+
+print("\n=== AVALIAÇÃO DO MODELO ===")
+
+mse = mean_squared_error(y_test, y_pred)
+rmse = np.sqrt(mse)
+mae = mean_absolute_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+print(f"\n📊 RESULTADOS:")
+print(f"MSE: {mse:.4f}")
+print(f"RMSE: {rmse:.4f}")
+print(f"MAE: {mae:.4f}")
+print(f"R²: {r2:.4f}")
+
+if r2 > 0.7:
+    print("→ 🟢 Modelo muito bom!")
+elif r2 > 0.5:
+    print("→ 🟡 Modelo razoável.")
+elif r2 > 0.3:
+    print("→ 🟠 Modelo fraco, mas melhor que o acaso.")
+else:
+    print("→ 🔴 Modelo muito fraco.")
+
+print("\n=== VISUALIZAÇÕES DOS RESULTADOS ===")
+
+plt.figure(figsize=(15, 10))
+
+plt.subplot(2, 3, 1)
+plt.scatter(y_test, y_pred, alpha=0.6, color='blue')
+plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2)
+plt.xlabel('Qualidade Real')
+plt.ylabel('Qualidade Predita')
+plt.title('Predições vs Realidade')
+
+plt.subplot(2, 3, 2)
+residuals = y_test - y_pred
+plt.scatter(y_pred, residuals, alpha=0.6, color='green')
+plt.axhline(y=0, color='r', linestyle='--')
+plt.xlabel('Predições')
+plt.ylabel('Resíduos')
+plt.title('Análise de Resíduos')
+
+plt.subplot(2, 3, 3)
+plt.hist(residuals, bins=20, edgecolor='black', alpha=0.7, color='orange')
+plt.xlabel('Resíduos')
 plt.ylabel('Frequência')
-plt.title('Distribuição de Probabilidades')
+plt.title('Distribuição dos Erros')
+
+plt.subplot(2, 3, 4)
+feature_names = features.columns
+weights = theta_final[1:]
+plt.barh(range(len(weights)), weights)
+plt.yticks(range(len(weights)), feature_names)
+plt.xlabel('Peso no Modelo')
+plt.title('Importância das Características')
+
+plt.subplot(2, 3, 5)
+sample_indices = np.random.choice(len(y_test), 20, replace=False)
+x_pos = range(len(sample_indices))
+plt.bar([x - 0.2 for x in x_pos], y_test.iloc[sample_indices], width=0.4, 
+        label='Real', alpha=0.7, color='blue')
+plt.bar([x + 0.2 for x in x_pos], y_pred[sample_indices], width=0.4, 
+        label='Predito', alpha=0.7, color='red')
+plt.xlabel('Amostras')
+plt.ylabel('Qualidade')
+plt.title('Comparação: 20 Amostras')
 plt.legend()
 
 plt.tight_layout()
-plt.savefig('results_analysis_simple.png', dpi=300, bbox_inches='tight')
+plt.savefig('resultados_regressao_linear.png', dpi=300, bbox_inches='tight')
 plt.show()
 
-print(f"\n=== RESUMO FINAL ===")
-print(f"Regressão Linear - R²: {r2:.4f}, RMSE: {rmse:.4f}")
-print(f"Regressão Logística - Acurácia: {accuracy:.4f}, F1: {f1:.4f}") 
+print(f"\n" + "="*60)
+print(f"RESUMO FINAL")
+print(f"="*60)
+
+print(f"\n📊 DADOS:")
+print(f"   • {df.shape[0]} vinhos analisados")
+print(f"   • {df.shape[1]-1} características químicas")
+
+print(f"\n📈 PERFORMANCE:")
+print(f"   • R² = {r2:.3f} ({r2:.1%} da variação explicada)")
+print(f"   • Erro médio = {mae:.2f} pontos de qualidade")
+print(f"   • RMSE = {rmse:.2f}")
+
+print(f"\n🔍 CARACTERÍSTICAS MAIS IMPORTANTES:")
+feature_importance = list(zip(features.columns, theta_final[1:]))
+feature_importance.sort(key=lambda x: abs(x[1]), reverse=True)
+
+for i, (feature, weight) in enumerate(feature_importance[:5]):
+    direction = "aumenta" if weight > 0 else "diminui"
+    print(f"   {i+1}. {feature}: {direction} a qualidade (peso: {weight:.3f})")
+
+print(f"\n" + "="*60) 
