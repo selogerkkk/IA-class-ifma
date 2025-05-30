@@ -2,9 +2,6 @@ import pandas as pd
 import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_absolute_error, r2_score, accuracy_score, confusion_matrix
 
 print("=== CARREGANDO DADOS DO VINHO ===")
 df = pd.read_csv("dataset/winequality-red.csv", sep=";")
@@ -71,22 +68,31 @@ print("\n=== PRÉ-PROCESSAMENTO DOS DADOS ===")
 
 print("Normalizando os dados...")
 
-features = df.drop('quality', axis=1)
-target = df['quality']
+features = df.drop('quality', axis=1).values
+target = df['quality'].values
 
 print(f"Características (X): {features.shape[1]} variáveis")
 print(f"Variável alvo (y): qualidade do vinho")
 
-scaler = StandardScaler()
-X_normalized = scaler.fit_transform(features)
+mean_X = np.mean(features, axis=0)
+std_X = np.std(features, axis=0)
+X_normalized = (features - mean_X) / std_X
 
 print("✓ Dados normalizados!")
 
 print("\n=== DIVISÃO DOS DADOS ===")
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X_normalized, target, test_size=0.3, random_state=42
-)
+np.random.seed(42)
+n_samples = len(X_normalized)
+n_test = int(n_samples * 0.3)
+indices = np.random.permutation(n_samples)
+test_indices = indices[:n_test]
+train_indices = indices[n_test:]
+
+X_train = X_normalized[train_indices]
+X_test = X_normalized[test_indices]
+y_train = target[train_indices]
+y_test = target[test_indices]
 
 print(f"Dados de treino: {X_train.shape[0]} vinhos")
 print(f"Dados de teste: {X_test.shape[0]} vinhos")
@@ -131,8 +137,10 @@ print("\n=== AVALIAÇÃO DO MODELO ===")
 
 mse = mean_squared_error(y_test, y_pred)
 rmse = np.sqrt(mse)
-mae = mean_absolute_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
+mae = np.mean(np.abs(y_test - y_pred))
+ss_res = np.sum((y_test - y_pred) ** 2)
+ss_tot = np.sum((y_test - np.mean(y_test)) ** 2)
+r2 = 1 - (ss_res / ss_tot)
 
 print(f"\n📊 RESULTADOS:")
 print(f"MSE: {mse:.4f}")
@@ -175,7 +183,7 @@ plt.ylabel('Frequência')
 plt.title('Distribuição dos Erros')
 
 plt.subplot(2, 3, 4)
-feature_names = features.columns
+feature_names = df.drop('quality', axis=1).columns
 weights = theta_final[1:]
 plt.barh(range(len(weights)), weights)
 plt.yticks(range(len(weights)), feature_names)
@@ -185,7 +193,7 @@ plt.title('Importância das Características')
 plt.subplot(2, 3, 5)
 sample_indices = np.random.choice(len(y_test), 20, replace=False)
 x_pos = range(len(sample_indices))
-plt.bar([x - 0.2 for x in x_pos], y_test.iloc[sample_indices], width=0.4, 
+plt.bar([x - 0.2 for x in x_pos], y_test[sample_indices], width=0.4, 
         label='Real', alpha=0.7, color='blue')
 plt.bar([x + 0.2 for x in x_pos], y_pred[sample_indices], width=0.4, 
         label='Predito', alpha=0.7, color='red')
@@ -212,7 +220,7 @@ print(f"   • Erro médio = {mae:.2f} pontos de qualidade")
 print(f"   • RMSE = {rmse:.2f}")
 
 print(f"\n🔍 CARACTERÍSTICAS MAIS IMPORTANTES:")
-feature_importance = list(zip(features.columns, theta_final[1:]))
+feature_importance = list(zip(feature_names, theta_final[1:]))
 feature_importance.sort(key=lambda x: abs(x[1]), reverse=True)
 
 for i, (feature, weight) in enumerate(feature_importance[:5]):
