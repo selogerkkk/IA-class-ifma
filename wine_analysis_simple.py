@@ -227,4 +227,78 @@ for i, (feature, weight) in enumerate(feature_importance[:5]):
     direction = "aumenta" if weight > 0 else "diminui"
     print(f"   {i+1}. {feature}: {direction} a qualidade (peso: {weight:.3f})")
 
+print(f"\n" + "="*60)
+
+print(f"\n=== EXPLICAÇÃO DOS RESULTADOS ===")
+
+print(f"\n🔍 ANÁLISE DOS GRÁFICOS:")
+
+print(f"\n1. PREDIÇÕES vs REALIDADE:")
+if r2 > 0.5:
+    print(f"   ✅ Pontos concentrados próximos à linha diagonal")
+    print(f"   ✅ Modelo consegue capturar a tendência geral")
+else:
+    print(f"   ⚠️ Pontos muito espalhados da linha diagonal")
+    print(f"   ⚠️ Modelo tem dificuldade para prever com precisão")
+
+print(f"\n2. ANÁLISE DE RESÍDUOS:")
+residuals = y_test - y_pred
+residual_mean = np.mean(residuals)
+if abs(residual_mean) < 0.1:
+    print(f"   ✅ Resíduos centrados em zero (sem viés)")
+else:
+    print(f"   ⚠️ Resíduos deslocados (viés de {residual_mean:.3f})")
+
+residual_pattern = np.corrcoef(y_pred, residuals)[0,1]
+if abs(residual_pattern) < 0.1:
+    print(f"   ✅ Resíduos distribuídos aleatoriamente")
+else:
+    print(f"   ⚠️ Padrão detectado nos resíduos")
+
+print(f"\n3. DISTRIBUIÇÃO DOS ERROS:")
+residual_std = np.std(residuals)
+print(f"   • Desvio padrão dos erros: {residual_std:.3f}")
+if residual_std < 0.8:
+    print(f"   ✅ Erros pequenos e consistentes")
+else:
+    print(f"   ⚠️ Erros grandes e variáveis")
+
+print(f"\n4. CARACTERÍSTICAS MAIS INFLUENTES:")
+top_features = feature_importance[:3]
+for i, (feature, weight) in enumerate(top_features):
+    impact = "forte" if abs(weight) > 0.15 else "moderado" if abs(weight) > 0.08 else "fraco"
+    direction = "positivo" if weight > 0 else "negativo"
+    print(f"   • {feature}: impacto {impact} {direction}")
+
+print(f"\n💡 INTERPRETAÇÃO PRÁTICA:")
+
+alcohol_weight = next((w for f, w in feature_importance if 'alcohol' in f), 0)
+if alcohol_weight > 0.1:
+    print(f"   🍷 Vinhos com maior teor alcoólico tendem a ter melhor qualidade")
+
+volatile_acidity_weight = next((w for f, w in feature_importance if 'volatile acidity' in f), 0)
+if volatile_acidity_weight < -0.05:
+    print(f"   🧪 Alta acidez volátil prejudica significativamente a qualidade")
+
+sulphates_weight = next((w for f, w in feature_importance if 'sulphates' in f), 0)
+if sulphates_weight > 0.05:
+    print(f"   📊 Sulfatos em quantidade adequada melhoram a qualidade")
+
+print(f"\n🎯 QUALIDADE DO MODELO:")
+if r2 > 0.6:
+    print(f"   🟢 EXCELENTE: Modelo explica {r2:.1%} da variação")
+elif r2 > 0.4:
+    print(f"   🟡 BOM: Modelo explica {r2:.1%} da variação")
+elif r2 > 0.2:
+    print(f"   🟠 REGULAR: Modelo explica {r2:.1%} da variação")
+else:
+    print(f"   🔴 FRACO: Modelo explica apenas {r2:.1%} da variação")
+
+if mae < 0.6:
+    print(f"   ✅ Erro médio baixo: {mae:.2f} pontos")
+elif mae < 1.0:
+    print(f"   🟡 Erro médio moderado: {mae:.2f} pontos")
+else:
+    print(f"   ⚠️ Erro médio alto: {mae:.2f} pontos")
+
 print(f"\n" + "="*60) 
