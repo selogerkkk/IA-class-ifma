@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 print("=== CARREGANDO DADOS DO VINHO ===")
-df = pd.read_csv("dataset/winequality-red.csv", sep=";")
+df = pd.read_csv("../dataset/winequality-red.csv", sep=";")
 
 print("Primeiras 5 linhas do dataset:")
 print(df.head())

@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 print("=== CARREGANDO DADOS DA REDE SOCIAL ===")
-df = pd.read_csv("dataset/Social_Network_Ads.csv")
+df = pd.read_csv("../dataset/Social_Network_Ads.csv")
 
 print("Primeiras 5 linhas do dataset:")
 print(df.head())
